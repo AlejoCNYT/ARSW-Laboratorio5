@@ -1,0 +1,61 @@
+1. Identificación de Condiciones de Carrera
+
+Dado que el componente BlueprintsRESTAPI opera en un entorno concurrente, donde múltiples hilos pueden acceder y modificar datos simultáneamente, se identificaron las siguientes condiciones de carrera:
+
+    Acceso concurrente a la colección de blueprints: Múltiples hilos pueden intentar agregar, modificar o eliminar planos simultáneamente, lo que puede generar inconsistencias en los datos.
+
+    Consulta de datos mientras se modifican: Si un hilo está leyendo los blueprints mientras otro los modifica, podrían producirse lecturas inconsistentes.
+
+    Falta de sincronización adecuada en la capa de persistencia: El uso de una estructura de datos no segura para concurrencia podría causar corrupción de datos o comportamiento inesperado.
+
+2. Regiones Críticas Identificadas
+
+Se determinaron las siguientes regiones críticas en el código:
+
+    getAllBlueprints() y getBlueprintsByAuthor(String author): Estas operaciones pueden leer datos inconsistentes si otro hilo está modificando la estructura de datos.
+
+    addNewBlueprint(Blueprint bp): Si varios hilos intentan agregar el mismo plano al mismo tiempo, podrían surgir conflictos.
+
+    updateBlueprint(String author, String bpname, Blueprint nuevoBlueprint): Podría causar modificaciones simultáneas sobre el mismo blueprint sin control de concurrencia.
+
+3. Solución Aplicada
+
+Para resolver las condiciones de carrera sin afectar significativamente el rendimiento, se aplicó la siguiente estrategia:
+
+    Sustitución de Set<Blueprint> por una estructura concurrente
+
+        Se reemplazó el Set<Blueprint> por ConcurrentHashMap.newKeySet() en la implementación de la capa de persistencia (InMemoryBlueprintPersistence).
+    private final Set<Blueprint> blueprints = ConcurrentHashMap.newKeySet();
+
+    Esto permite operaciones concurrentes seguras sin necesidad de sincronización manual.
+
+    Eliminación de synchronized en operaciones de lectura
+
+        Los métodos getAllBlueprints() y getBlueprintsByAuthor(String author) fueron optimizados eliminando synchronized, ya que la estructura concurrente garantiza seguridad en lecturas simultáneas.
+
+    Uso de sincronización fina en modificaciones
+
+        En lugar de bloquear toda la API con synchronized, se aplicaron bloqueos solo en operaciones críticas como addNewBlueprint() y updateBlueprint(), pero aprovechando estructuras concurrentes para minimizar el tiempo de bloqueo.
+    public void addNewBlueprint(Blueprint bp) throws BlueprintPersistenceException {
+        synchronized (this) {
+            bpp.saveBlueprint(bp);
+        }
+    }
+
+    Evitar bloqueos innecesarios en la capa de servicios
+
+        Se retiraron las declaraciones synchronized en BlueprintsServices, confiando en la estructura concurrente para la sincronización eficiente.
+
+4. Resultado Final
+
+Con estas optimizaciones, la API ahora maneja múltiples solicitudes concurrentes de manera segura sin afectar el rendimiento de forma significativa. Se garantiza:
+
+    Accesos concurrentes eficientes a la base de datos en memoria sin corrupción de datos.
+
+    Eliminación de bloqueos globales innecesarios, mejorando la escalabilidad.
+
+    Modificaciones controladas en regiones críticas, asegurando consistencia sin afectar rendimiento.
+
+Con estas mejoras, el sistema ahora está preparado para manejar concurrencia de manera eficiente en un entorno de múltiples hilos.
+
+
