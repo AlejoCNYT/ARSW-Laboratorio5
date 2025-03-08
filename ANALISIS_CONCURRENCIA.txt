@@ -24,8 +24,8 @@ Para resolver las condiciones de carrera sin afectar significativamente el rendi
 
     Sustitución de Set<Blueprint> por una estructura concurrente
 
-        Se reemplazó el Set<Blueprint> por ConcurrentHashMap.newKeySet() en la implementación de la capa de persistencia (InMemoryBlueprintPersistence).
-    private final Set<Blueprint> blueprints = ConcurrentHashMap.newKeySet();
+        Se reemplazó el HashMap<Blueprint> por ConcurrentHashMap.newKey() en la implementación de la capa de persistencia (InMemoryBlueprintPersistence).
+    private final HashMap<Blueprint> blueprints = ConcurrentHashMap.newKey();
 
     Esto permite operaciones concurrentes seguras sin necesidad de sincronización manual.
 
@@ -35,27 +35,5 @@ Para resolver las condiciones de carrera sin afectar significativamente el rendi
 
     Uso de sincronización fina en modificaciones
 
-        En lugar de bloquear toda la API con synchronized, se aplicaron bloqueos solo en operaciones críticas como addNewBlueprint() y updateBlueprint(), pero aprovechando estructuras concurrentes para minimizar el tiempo de bloqueo.
-    public void addNewBlueprint(Blueprint bp) throws BlueprintPersistenceException {
-        synchronized (this) {
-            bpp.saveBlueprint(bp);
-        }
-    }
-
-    Evitar bloqueos innecesarios en la capa de servicios
-
-        Se retiraron las declaraciones synchronized en BlueprintsServices, confiando en la estructura concurrente para la sincronización eficiente.
-
-4. Resultado Final
-
-Con estas optimizaciones, la API ahora maneja múltiples solicitudes concurrentes de manera segura sin afectar el rendimiento de forma significativa. Se garantiza:
-
-    Accesos concurrentes eficientes a la base de datos en memoria sin corrupción de datos.
-
-    Eliminación de bloqueos globales innecesarios, mejorando la escalabilidad.
-
-    Modificaciones controladas en regiones críticas, asegurando consistencia sin afectar rendimiento.
-
-Con estas mejoras, el sistema ahora está preparado para manejar concurrencia de manera eficiente en un entorno de múltiples hilos.
 
 
